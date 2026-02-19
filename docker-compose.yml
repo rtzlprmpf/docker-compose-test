@@ -46,6 +46,7 @@ services:
         # Simulate test execution with a sleep command
         sleep 5
         echo "Tests completed, sending ready signal..."
+        nats --server nats://nats-hmi:4222 pub ui.done "Tests completed"
       '
     depends_on:
       - nats-server
