@@ -1,0 +1,51 @@
+name: 01-tests
+networks:
+  internal_network:
+  shared_network:
+    name: hmi_shared_network
+    external: true
+
+services:
+  nats-server:
+    image: nats:latest
+    container_name: nats-server
+    networks:
+      - internal_network
+
+  ui-simulation:
+    image: natsio/nats-box:latest
+    environment:
+      - NATS_URL=nats://nats-server:4222
+    networks:
+      - internal_network
+    command: |
+      sh -c '
+        echo "Starting UI simulation..." && \
+        sleep 5 && \
+        echo "UI is ready, sending ready signal..." && \
+        nats pub ui.ready "UI is ready"
+      '
+    depends_on:
+      - nats-server
+
+  test-runner:
+    image: natsio/nats-box:latest
+    networks:
+      - internal_network
+      - shared_network
+    environment:
+      - NATS_URL=nats://nats-server:4222
+    command: |
+      sh -c '
+        sleep 1 # Wait for NATS server to be ready
+        nats sub ui.ready --count=1
+        echo "UI is ready, starting tests..."
+        nats --server nats://nats-hmi:4222 pub ui.ready "UI is ready"
+        nats --server nats://nats-hmi:4222 sub ui.start --count=1
+        echo "Received start signal, running tests..."
+        # Simulate test execution with a sleep command
+        sleep 5
+        echo "Tests completed, sending ready signal..."
+      '
+    depends_on:
+      - nats-server
